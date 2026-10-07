@@ -1,4 +1,4 @@
-"""Regression tests for the CommunityDetector.detect_communities dispatcher.
+﻿"""Regression tests for the CommunityDetector.detect_communities dispatcher.
 
 ``label_propagation`` is implemented and reachable through
 ``detect_communities_label_propagation()``, but the dispatcher never listed it.
@@ -508,18 +508,24 @@ def test_detect_communities_method_casing_and_separator_variations(monkeypatch):
         assert called_methods == ["label_propagation"], f"Failed for method variant: {variant}"
 
 
-def test_detect_communities_unrecognized_method_logs_warning_and_falls_back(caplog):
-    """Verify that an unrecognized method logs a descriptive warning and falls back to louvain."""
+def test_detect_communities_unrecognized_method_logs_warning_and_falls_back(caplog, monkeypatch):
+    """Verify that an unrecognized method logs a warning and falls back to running louvain."""
+    called = []
+
+    def mock_louvain(self, graph, **kwargs):
+        called.append("louvain")
+        return {"communities": [[0, 1], [2, 3]]}
+
+    monkeypatch.setattr(CommunityDetector, "detect_communities_louvain", mock_louvain)
+
     detector = CommunityDetector()
     graph = nx.path_graph(4)
 
     with caplog.at_level("WARNING"):
-        # Unknown method typo should fall back to default louvain with warning
-        try:
-            detector.detect_communities(graph, method="unknown_typo_method")
-        except Exception:
-            pass  # We only care that warning was emitted
+        result = detector.detect_communities(graph, method="unknown_typo_method")
 
+    assert called == ["louvain"], "Expected fallback to Louvain algorithm"
+    assert "communities" in result
     assert any(
         "Unrecognized community detection method 'unknown_typo_method'" in record.message
         for record in caplog.records
