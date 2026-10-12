@@ -1,4 +1,4 @@
-﻿"""
+"""
 Community Detection Module
 
 This module provides comprehensive community detection capabilities for the
@@ -478,9 +478,11 @@ class CommunityDetector:
             graph: Input graph for community detection
             algorithm: Community detection algorithm to use. Supported values
                       are "louvain", "leiden", "overlapping" and
-                      "label_propagation".
-            method: Alias for ``algorithm``. A value that is not supported is
-                      ignored, which leaves ``algorithm`` in effect.
+                      "label_propagation". Names are case-insensitive and
+                      tolerate "-", "_" and spaces as separators.
+            method: Alias for ``algorithm``, matched the same way. A value
+                      that is not recognized logs a warning and falls back
+                      to the ``algorithm`` argument.
             **options: Additional detection options (passed to algorithm-specific method)
 
         Returns:
@@ -498,10 +500,8 @@ class CommunityDetector:
             "label_propagation": self.detect_communities_label_propagation,
         }
 
-        # Canonical lookup table for casing/separators (e.g., 'labelpropagation', 'label-propagation')
-        canonical_map = {
-            k.replace("_", ""): k for k in handlers
-        }
+        # Canonical lookup for casing/separators (e.g. 'labelpropagation')
+        canonical_map = {k.replace("_", ""): k for k in handlers}
 
         # The names are looked up in a dict, so a non-string would either be
         # ignored or fail as "unhashable type"; name the real problem instead.
@@ -524,14 +524,20 @@ class CommunityDetector:
             else:
                 self.logger.warning(
                     f"Unrecognized community detection method '{method}'. "
-                    f"Falling back to default algorithm '{algorithm}'."
+                    f"Falling back to active algorithm '{algorithm}'."
                 )
 
         # Normalize algorithm parameter for casing/separator tolerance
-        clean_algo = algorithm.strip().lower().replace("-", "_").replace(" ", "") if isinstance(algorithm, str) else algorithm
+        clean_algo = (
+            algorithm.strip().lower().replace("-", "_").replace(" ", "")
+            if isinstance(algorithm, str)
+            else algorithm
+        )
         if clean_algo in handlers:
             handler = handlers[clean_algo]
-        elif isinstance(clean_algo, str) and clean_algo.replace("_", "") in canonical_map:
+        elif (
+            isinstance(clean_algo, str) and clean_algo.replace("_", "") in canonical_map
+        ):
             handler = handlers[canonical_map[clean_algo.replace("_", "")]]
         else:
             handler = handlers.get(algorithm)
